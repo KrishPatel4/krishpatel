@@ -44,7 +44,7 @@ public class EmailReportGenerator {
     private static final String CONTAINER = "<div id='container' style='width: 98%; padding: 10px; margin: 0; background: #EBEBE0; color: #717171; "
             + "font-family: Calibri;'><div id='summary'><h2 align='center' style='background-color: gray; color: white; padding: 10px; margin: 0;'>"
             + "${title}</h2><br><h2 style='clear: both; margin: 0;'>Summary:</h2><hr/><table style='width: 1000px;'><tr><td style='width: 100px;'>"
-            + "url:</td><td>${env}</td></tr><tr><td>Version:</td><td>${version}</td></tr><tr><td>Browser:</td><td>${browser}</td></tr><tr>"
+            + "Environment:</td><td>${env}</td></tr><tr><td>Version:</td><td>${version}</td></tr><tr><td>Browser:</td><td>${browser}</td></tr><tr>"
             + "<td>Finished:</td><td>${finish_date}</td></tr><tr class='pass' style='color: #66C266;'><td>Passed: </td><td>${pass_count}</td></tr>"
             + "<tr class='fail' style='color: #FF5C33;'><td>Failed:</td><td>${fail_count}</td></tr><tr class='skip' style='color: #FFD700;'>"
             + "<td>Skipped:</td><td>${skip_count}</td></tr><tr><td>Success rate:</td><td>${pass_rate}%</td></tr></table></div><br>${cucumber_results}"
