@@ -44,7 +44,7 @@ public class EmailReportGenerator {
     private static final String CONTAINER = "<div id='container' style='width: 98%; padding: 10px; margin: 0; background: #EBEBE0; color: #717171; "
             + "font-family: Calibri;'><div id='summary'><h2 align='center' style='background-color: gray; color: white; padding: 10px; margin: 0;'>"
             + "${title}</h2><br><h2 style='clear: both; margin: 0;'>Summary:</h2><hr/><table style='width: 1000px;'><tr><td style='width: 100px;'>"
-            + "Environment:</td><td>${env}</td></tr><tr><td>Version:</td><td>${version}</td></tr><tr><td>Browser:</td><td>${browser}</td></tr><tr>"
+            + "url:</td><td>${env}</td></tr><tr><td>Version:</td><td>${version}</td></tr><tr><td>Browser:</td><td>${browser}</td></tr><tr>"
             + "<td>Finished:</td><td>${finish_date}</td></tr><tr class='pass' style='color: #66C266;'><td>Passed: </td><td>${pass_count}</td></tr>"
             + "<tr class='fail' style='color: #FF5C33;'><td>Failed:</td><td>${fail_count}</td></tr><tr class='skip' style='color: #FFD700;'>"
             + "<td>Skipped:</td><td>${skip_count}</td></tr><tr><td>Success rate:</td><td>${pass_rate}%</td></tr></table></div><br>${cucumber_results}"
@@ -116,7 +116,7 @@ public class EmailReportGenerator {
     private static final String FAIL_CONFIG_REASON_PLACEHOLDER = "${fail_config_reason}";
     private static final String SCREENSHOTS_URL_PLACEHOLDER = "${screenshots_url}";
     private static final String LOG_URL_PLACEHOLDER = "${log_url}";
-    private static final String CREATED_ITEMS_LIST_PLACEHOLDER = "${created_items_list}";
+    private static final String ITEMS_LIST = "${created_items_list}";
     private static final String CREATED_ITEM_PLACEHOLDER = "${created_item}";
     private static final int MESSAGE_LIMIT = 2048;
 
@@ -134,6 +134,56 @@ public class EmailReportGenerator {
     private int failCount = 0;
     private int skipCount = 0;
 
+    public class ReportParameters {
+        private String title;
+        private String url;
+        private String version;
+        private String browser;
+        private String finishDate;
+        private List<TestResultItem> testResults;
+        private List<String> createdItems;
+    
+        // Constructor, getters, and setters
+        public ReportParameters(String title, String url, String version, String browser, String finishDate,
+                                List<TestResultItem> testResults, List<String> createdItems) {
+            this.title = title;
+            this.url = url;
+            this.version = version;
+            this.browser = browser;
+            this.finishDate = finishDate;
+            this.testResults = testResults;
+            this.createdItems = createdItems;
+        }
+    
+        public String getTitle() {
+            return title;
+        }
+    
+        public String geturl() {
+            return url;
+        }
+    
+        public String getVersion() {
+            return version;
+        }
+    
+        public String getBrowser() {
+            return browser;
+        }
+    
+        public String getFinishDate() {
+            return finishDate;
+        }
+    
+        public List<TestResultItem> getTestResults() {
+            return testResults;
+        }
+    
+        public List<String> getCreatedItems() {
+            return createdItems;
+        }
+    }
+    
     public EmailReportGenerator(String title, String url, String version, String browser, String finishDate,
             List<TestResultItem> testResultItems, List<String> createdItems) {
         emailBody = emailBody.replace(TITLE_PLACEHOLDER, title);
@@ -146,8 +196,7 @@ public class EmailReportGenerator {
         emailBody = emailBody.replace(FAIL_COUNT_PLACEHOLDER, String.valueOf(failCount));
         emailBody = emailBody.replace(SKIP_COUNT_PLACEHOLDER, String.valueOf(skipCount));
         emailBody = emailBody.replace(PASS_RATE_PLACEHOLDER, String.valueOf(getSuccessRate()));
-        emailBody = emailBody.replace(CREATED_ITEMS_LIST_PLACEHOLDER, getCreatedItemsList(createdItems));
-
+        emailBody = emailBody.replace(ITEMS_LIST, getCreatedItemsList(createdItems));
         // Cucumber section
         emailBody = emailBody.replace(CUCUMBER_RESULTS_PLACEHOLDER, getCucumberResultsHTML());
 
@@ -175,90 +224,64 @@ public class EmailReportGenerator {
     }
 
     private String getTestRow(TestResultItem testResultItem) {
-        String result = "";
-        String failReason = "";
-        if (testResultItem.getResult().name().equalsIgnoreCase("FAIL")) {
-            if (INCLUDE_FAIL) {
-                if (testResultItem.isConfig()) {
-                    result = testResultItem.getLinkToScreenshots() != null && !"".equals(testResultItem.getLinkToScreenshots())
-                            ? FAIL_CONFIG_LOG_DEMO_TR
-                            : FAIL_CONFIG_LOG_TR;
-                    result = result.replace(TEST_NAME_PLACEHOLDER, testResultItem.getTest());
-
-                    failReason = testResultItem.getFailReason();
-                    if (!StringUtils.isEmpty(failReason)) {
-                        // Make description more compact for email report
-                        failReason = failReason.length() > MESSAGE_LIMIT ? (failReason.substring(0, MESSAGE_LIMIT) + "...") : failReason;
-                        result = result.replace(FAIL_CONFIG_REASON_PLACEHOLDER, formatFailReasonAsHtml(failReason));
-                    } else {
-                        result = result.replace(FAIL_CONFIG_REASON_PLACEHOLDER, "Undefined failure: contact qa engineer!");
-                    }
-                } else {
-                    result = testResultItem.getLinkToScreenshots() != null && !"".equals(testResultItem.getLinkToScreenshots())
-                            ? FAIL_TEST_LOG_DEMO_TR
-                            : FAIL_TEST_LOG_TR;
-                    result = result.replace(TEST_NAME_PLACEHOLDER, testResultItem.getTest());
-
-                    failReason = testResultItem.getFailReason();
-                    if (!StringUtils.isEmpty(failReason)) {
-                        // Make description more compact for email report
-                        failReason = failReason.length() > MESSAGE_LIMIT ? (failReason.substring(0, MESSAGE_LIMIT) + "...") : failReason;
-                        result = result.replace(FAIL_REASON_PLACEHOLDER, formatFailReasonAsHtml(failReason));
-                    } else {
-                        result = result.replace(FAIL_REASON_PLACEHOLDER, "Undefined failure: contact qa engineer!");
-                    }
-                }
-
-                result = result.replace(LOG_URL_PLACEHOLDER, testResultItem.getLinkToLog());
-
-                if (testResultItem.getLinkToScreenshots() != null) {
-                    result = result.replace(SCREENSHOTS_URL_PLACEHOLDER, testResultItem.getLinkToScreenshots());
-                }
-            }
-            failCount++;
+        switch (testResultItem.getResult()) {
+            case PASS:
+                return getPassTestRow(testResultItem);
+            case FAIL:
+                return getFailTestRow(testResultItem);
+            case SKIP:
+                return getSkipTestRow(testResultItem);
+            default:
+                return "";
         }
-
-        if (testResultItem.getResult().name().equalsIgnoreCase("SKIP")) {
-            failReason = testResultItem.getFailReason();
-            if (!testResultItem.isConfig()) {
-                if (INCLUDE_SKIP) {
-                    result = testResultItem.getLinkToScreenshots() != null && !"".equals(testResultItem.getLinkToScreenshots())
-                            ? SKIP_TEST_LOG_DEMO_TR
-                            : SKIP_TEST_LOG_TR;
-                    result = result.replace(TEST_NAME_PLACEHOLDER, testResultItem.getTest());
-
-                    if (!StringUtils.isEmpty(failReason)) {
-                        // Make description more compact for email report
-                        failReason = failReason.length() > MESSAGE_LIMIT
-                                ? (failReason.substring(0, MESSAGE_LIMIT) + "...")
-                                : failReason;
-                        result = result.replace(SKIP_REASON_PLACEHOLDER, formatFailReasonAsHtml(failReason));
-                    } else {
-                        result = result.replace(SKIP_REASON_PLACEHOLDER,
-                                "Analyze SYSTEM ISSUE log for details or check dependency settings for the test.");
-                    }
-
-                    result = result.replace(LOG_URL_PLACEHOLDER, testResultItem.getLinkToLog());
-
-                    if (testResultItem.getLinkToScreenshots() != null) {
-                        result = result.replace(SCREENSHOTS_URL_PLACEHOLDER, testResultItem.getLinkToScreenshots());
-                    }
-                }
-                skipCount++;
-            }
+    }
+    
+    private String getPassTestRow(TestResultItem testResultItem) {
+        passCount++;
+        String result = testResultItem.getLinkToScreenshots() != null && !"".equals(testResultItem.getLinkToScreenshots())
+                ? PASS_TEST_LOG_DEMO_TR : PASS_TEST_LOG_TR;
+        result = result.replace(TEST_NAME_PLACEHOLDER, testResultItem.getTest());
+        result = result.replace(LOG_URL_PLACEHOLDER, testResultItem.getLinkToLog());
+        if (testResultItem.getLinkToScreenshots() != null) {
+            result = result.replace(SCREENSHOTS_URL_PLACEHOLDER, testResultItem.getLinkToScreenshots());
         }
-        if (testResultItem.getResult().name().equalsIgnoreCase("PASS") && !testResultItem.isConfig()) {
-            passCount++;
-            if (INCLUDE_PASS) {
-                result = testResultItem.getLinkToScreenshots() != null && !"".equals(testResultItem.getLinkToScreenshots()) ? PASS_TEST_LOG_DEMO_TR
-                        : PASS_TEST_LOG_TR;
-                result = result.replace(TEST_NAME_PLACEHOLDER, testResultItem.getTest());
-                result = result.replace(LOG_URL_PLACEHOLDER, testResultItem.getLinkToLog());
-
-                if (testResultItem.getLinkToScreenshots() != null) {
-                    result = result.replace(SCREENSHOTS_URL_PLACEHOLDER, testResultItem.getLinkToScreenshots());
-                }
-            }
+        return result;
+    }
+    
+    private String getFailTestRow(TestResultItem testResultItem) {
+        failCount++;
+        String result = testResultItem.getLinkToScreenshots() != null && !"".equals(testResultItem.getLinkToScreenshots())
+                ? FAIL_TEST_LOG_DEMO_TR : FAIL_TEST_LOG_TR;
+        result = result.replace(TEST_NAME_PLACEHOLDER, testResultItem.getTest());
+        String failReason = testResultItem.getFailReason();
+        if (!StringUtils.isEmpty(failReason)) {
+            failReason = failReason.length() > MESSAGE_LIMIT ? (failReason.substring(0, MESSAGE_LIMIT) + "...") : failReason;
+            result = result.replace(FAIL_REASON_PLACEHOLDER, formatFailReasonAsHtml(failReason));
+        } else {
+            result = result.replace(FAIL_REASON_PLACEHOLDER, "Undefined failure: contact qa engineer!");
+        }
+        result = result.replace(LOG_URL_PLACEHOLDER, testResultItem.getLinkToLog());
+        if (testResultItem.getLinkToScreenshots() != null) {
+            result = result.replace(SCREENSHOTS_URL_PLACEHOLDER, testResultItem.getLinkToScreenshots());
+        }
+        return result;
+    }
+    
+    private String getSkipTestRow(TestResultItem testResultItem) {
+        skipCount++;
+        String result = testResultItem.getLinkToScreenshots() != null && !"".equals(testResultItem.getLinkToScreenshots())
+                ? SKIP_TEST_LOG_DEMO_TR : SKIP_TEST_LOG_TR;
+        result = result.replace(TEST_NAME_PLACEHOLDER, testResultItem.getTest());
+        String skipReason = testResultItem.getFailReason();
+        if (!StringUtils.isEmpty(skipReason)) {
+            skipReason = skipReason.length() > MESSAGE_LIMIT ? (skipReason.substring(0, MESSAGE_LIMIT) + "...") : skipReason;
+            result = result.replace(SKIP_REASON_PLACEHOLDER, formatFailReasonAsHtml(skipReason));
+        } else {
+            result = result.replace(SKIP_REASON_PLACEHOLDER, "Analyze SYSTEM ISSUE log for details or check dependency settings for the test.");
+        }
+        result = result.replace(LOG_URL_PLACEHOLDER, testResultItem.getLinkToLog());
+        if (testResultItem.getLinkToScreenshots() != null) {
+            result = result.replace(SCREENSHOTS_URL_PLACEHOLDER, testResultItem.getLinkToScreenshots());
         }
         return result;
     }
@@ -315,7 +338,7 @@ public class EmailReportGenerator {
             for (String createdItem : createdItems) {
                 result.append(CREATED_ITEM.replace(CREATED_ITEM_PLACEHOLDER, createdItem));
             }
-            return CREATED_ITEMS_LIST.replace(CREATED_ITEMS_LIST_PLACEHOLDER, result.toString());
+            return CREATED_ITEMS_LIST.replace(ITEMS_LIST, result.toString());
         } else {
             return "";
         }
